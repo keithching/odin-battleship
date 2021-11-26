@@ -1,0 +1,261 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background-color: grey;
+    color: white;
+    font-weight: bold;
+}
+
+.content {
+    padding: 30px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 100px;
+}
+
+.content .gameboard {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 100px;
+}
+
+.content .gameboard .gameboard_items {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 50px;
+}
+
+.player1_id, .player2_id {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.player1, .player2 {
+    flex: auto;
+}
+
+.msg {
+    padding: 0 10px;
+    margin: 0;
+    height: 50px;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 1px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    visibility: hidden;
+}
+
+.error {
+    border-style: solid;
+    border-color: red;
+    background-color: rgba(255, 0, 0, 0.2);
+    color: darkred;
+}
+
+.show {
+    transition: all 1s;
+    visibility: visible;
+}
+
+.footer {
+    text-align: center;
+    color: black;
+    margin-bottom: 10px;
+}
+
+.footer a {
+    text-decoration: none;
+    color: grey;
+}
+
+.axis {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-style: solid;
+    border-width: 1px;
+    border-color: transparent;
+    font-style: italic;
+    font-weight: bold;
+    width: 50px;
+    height: 50px;
+    margin: -0.5px;
+}
+
+.grid {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-style: solid;
+    border-width: 1px;
+    width: 50px;
+    height: 50px;
+    margin: -0.5px;
+    border-color: rgba(0,0,0,0.2);
+    transition: all 0.3s;
+}
+
+.player2 .grid,
+.grid.customize {
+    cursor: pointer;
+}
+
+.grid_hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.grid_click {
+    background-color: rgba(0,0,0,0.3);
+}
+
+.invalidShip {
+    background-color: red;
+}
+
+.validShip {
+    background-color: lightgreen;
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.receivedAttack { 
+    background-color: red;
+}
+
+.missedAttack {
+    background-color: green;
+}
+
+#newgame {
+    width: 100px;
+    border-radius: 10px;
+    padding: 5px 10px;
+    border-style: none;
+    box-shadow: 0 0 10px 2px rgba(0,0,0,0.2);
+    cursor: pointer;
+    background-color: white;
+    transition: all 0.3s;
+}
+
+#newgame:hover {
+    background-color: black;
+    color: white;
+}
+
+.userform {
+    visibility: hidden;
+
+}
+
+.userform form {
+    width: 800px;
+    height: 500px;
+    box-shadow: 0 0 10px 2px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+#playerName {
+    height: 20px;
+    margin: 0 10px;
+    font-family: 'Montserrat', sans-serif;
+    border-width: 0 0 1px 0;
+    border-color: grey;
+    padding: 5px;
+    transition: all 0.2s;
+}
+
+#playerName:focus {
+    outline: none;
+    border-color: blue;
+}
+
+#playerName.invalid {
+    border-color: red;
+}
+
+#shipMode {
+    padding: 5px;
+    margin: 0 10px;
+}
+
+#shipMode:focus {
+    outline: none;
+}
+
+.visible {
+    visibility: visible;
+}
+
+#submitbutton {
+    margin-top: 30px;
+    box-shadow: 0 0 10px 2px rgba(0,0,0,0.1);
+    padding: 10px 15px;
+    background-color: rgba(135, 207, 235, 0.5);
+    border-style: none;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+#submitbutton:hover {
+    background-color: rgba(255, 255, 0, 0.2);
+}
+
+.functionButtons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.functionButtons button {
+    box-shadow: 0 0 10px 2px rgba(0,0,0,0.2);
+    padding: 10px 15px;
+    border-style: none;
+    cursor: pointer;
+}
+
+#clearButton {
+    background-color: slategrey;
+    color: white;
+}
+
+#confirmButton {
+    background-color: yellow;
+}
+
+
+.infoPanel {
+    width: 100px;
+    padding: 20px;
+    box-shadow: 0 0 10px 2px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+

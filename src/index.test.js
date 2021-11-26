@@ -256,7 +256,6 @@ describe('player IIFE', () => {
     });
 
     test('computer can attack 100 non-repeated attacks', () => {
-
         // reset the pool
         player.resetPool();
 
@@ -274,7 +273,25 @@ describe('player IIFE', () => {
 
 // main game loop
 describe('main game loop', () => {
+    // create player
+
+    // testing not required since above tests covered already
+    test.todo('create players and gameboards');
+    // returns player object??
+    // expect(gameInterface.createPlayer)
 
 
-    
+    // place ships
+
+    // testing not required since above tests covered already
+    test.todo('some ships placed on both gameboards');
+    // ships: size of 5, 4, 3, 3, and 2
+
+
+
+
+    // start game
+
 });
+
+// a module for DOM interaction
