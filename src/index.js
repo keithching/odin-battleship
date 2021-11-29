@@ -1,5 +1,6 @@
 import './style.css';
 
+
 const shipFactory = (length) => {
 
     // name the positions as 'compartments'. As an array of length of the ship
@@ -64,14 +65,12 @@ const gameboardFactory = () => {
             throw new Error('overlapping of ship is not allowed');
         }
         
-        // in case of 3-character coordinates
-        if (coordinates.some(coordinate => coordinate.length == 3)) {
-            const firstTwoCharacters = coordinates.map(coordinate => coordinate.slice(0, 2));
-            if (firstTwoCharacters.some(coordinate => coordinate !== firstTwoCharacters[0])) {
+        if (coordinates.every(coordinate => coordinate.length !== 3) && coordinates.some(coordinate => coordinate.length === 3)) { // mix of 2 and 3-characters
+            const lastCharacter = coordinates.map(coordinate => coordinate.slice(coordinate.length - 1, coordinate.length));
+            if (lastCharacter.some(coordinate => coordinate !== lastCharacter[0])) {
                 throw new Error('diagonal placement of ship is not allowed');
             }
-        // 2-character coordinates
-        } else {
+        } else { // 2-character coordinates
             const firstCharacter = coordinates.map(coordinate => coordinate.slice(0, 1));
             const lastCharacter = coordinates.map(coordinate => coordinate.slice(1, 2));
             if (firstCharacter.some(coordinate => coordinate !== firstCharacter[0]) && lastCharacter.some(coordinate => coordinate !== lastCharacter[0])) {
@@ -221,9 +220,32 @@ const player = (() => {
 
 const gameInterface = (() => {
 
-    const layoutTheShips = (mode) => {
+    let gameMode;
+    const setMode = (mode) => gameMode = mode;
+    const getMode = () => gameMode;
+
+    const confirmShipLayout = () => {
+
+        let mode = getMode();
 
         if (mode == 'random') {
+            
+            prepareForGame(); // directly go to game prep
+
+        } else if (mode == 'customize') {
+            // enter drag and drop customization mode
+            DOMInterface.customizationMode.gameboard.create();
+        }
+
+    };
+
+    // lay the ships, prepare the gameboards in this step
+    const prepareForGame = () => {
+
+        let mode = getMode();
+
+        if (mode == 'random') { 
+
             // place ships on both boards
             player.players.player1.gameboard.placeShip(['1A', '1B', '1C', '1D', '1E']);
             player.players.player1.gameboard.placeShip(['2A', '2B', '2C', '2D']);
@@ -237,45 +259,51 @@ const gameInterface = (() => {
             player.players.player2.gameboard.placeShip(['4A', '4B', '4C']);
             player.players.player2.gameboard.placeShip(['5A', '5B']);
 
-            // set the current turn
-            player.setTurn(player.getName(player.players.player1));
         } else if (mode == 'customize') {
-            // enter drag and drop mode
+            let garage = DOMInterface.customizationMode.shipHarbour.getGarage();
 
-            // create an empty board (only one board at the moment)
-            DOMInterface.customizationMode.gameboard.create();
-
-
-            // populate to DOM
-
-
-            
-
+            garage.forEach(shipCoordinates => {
+                player.players.player1.gameboard.placeShip(shipCoordinates);
+                player.players.player2.gameboard.placeShip(shipCoordinates);
+            });
 
         }
+        
+        player.setTurn(player.getName(player.players.player1)); // set the current turn
+
+        startGame();
 
     };
 
+    const startGame = () => {
 
-    const createNewGame = (mode) => {
-        gameInterface.layoutTheShips(mode);
+        let mode = getMode();
 
+        if (mode == 'customize') {
 
-        // fire these when a trigger is activated
-        // TODO
+            // clear the customization mode DOM elements
+            const player1 = document.querySelector('.player1');
+            const functionButtons = document.querySelector('.functionButtons');
+            const infoPanel = document.querySelector('.infoPanel');
 
-        // DOMInterface.createGameboard();
-        // DOMInterface.renderGameboard(); // generate the gameboards to DOM
-        // DOMInterface.displayCurrentTurn(); // display current turn info to DOM
+            let child = player1.firstElementChild;
 
+            while (child) {
+                player1.removeChild(player1.firstElementChild);
+                child = player1.firstElementChild;
+            }
 
-        // REFACTORED VERSION:
-        // DOMInterface.gameMode.gameboard.create();
-        // DOMInterface.gameMode.gameboard.render();
-        // DOMInterface.gameMode.gameboard.displayCurrentTurn();
+            functionButtons.remove();
+            infoPanel.remove();
+                
+        }
 
-    }
+        // enter game
+        DOMInterface.gameMode.gameboard.create();
+        DOMInterface.gameMode.gameboard.render();
+        DOMInterface.gameMode.gameboard.displayCurrentTurn();
 
+    };
 
 
     const isEndGame = () => {
@@ -302,14 +330,16 @@ const gameInterface = (() => {
 
 
     return {
-        layoutTheShips,
-        createNewGame,
+        getMode,
+        setMode,
+        confirmShipLayout,
+        prepareForGame,
+        startGame,
         isEndGame,
         resetGame
     };
 
 })();
-
 
 const DOMInterface = (() => {
 
@@ -396,10 +426,11 @@ const DOMInterface = (() => {
                 // go into a transition page where the user either see a randomized ship board or a board allowing for drag and drop ships
                 // TODO
                 const mode = modeSelect.value;
+
+                gameInterface.setMode(mode); // set the gameMode
     
                 // proceed to game details
-                gameInterface.createNewGame(mode); // put ships depending on the ship mode
-    
+                gameInterface.confirmShipLayout();    
     
                 // remove the form from the DOM
                 form.remove();
@@ -526,6 +557,7 @@ const DOMInterface = (() => {
             const displayCurrentTurn = () => {
                 // display current turn
                 const msg = document.querySelector('.msg');
+                msg.classList.add('gameMode');
                 msg.textContent = `current turn: ${player.getTurn()}`;
             };
     
@@ -600,13 +632,19 @@ const DOMInterface = (() => {
                 confirmButton.textContent = 'confirm';
                 confirmButton.disabled = true;
 
+                confirmButton.addEventListener('click', () => {
+                    // place ships to gameboard object with the garage ships
+                    gameInterface.prepareForGame();
+
+                });
+
                 functionButtons.appendChild(confirmButton);
         
                 content.appendChild(functionButtons);
         
                 shipPlacementPanel.show();
         
-                dragAndDrop();  // enables drap and drop
+                dragAndDrop.invoke();  // enables drag and drop
             };
 
             const reset = () => { // reset gameboard to empty 
@@ -616,8 +654,9 @@ const DOMInterface = (() => {
                 document.getElementById('confirmButton').disabled = true; // disable the confirm button
                 shipHarbour.reset(); // reset ship harbour
                 shipPlacementPanel.refresh(); // reset ship placement panel in DOM
-                dragAndDrop(); // enables drap and drop
 
+                // TODO: implement reset drag and drop gameboard status
+                dragAndDrop.reset();
             };
 
             const clearInvalidShip = (coordinates) => {
@@ -660,118 +699,131 @@ const DOMInterface = (() => {
 
 
         // drag and drop implementation
-        const dragAndDrop = () => {
-            const grids = document.querySelectorAll('.grid');
-            const axes = document.querySelectorAll('.axis');
-            let isMousedown = false;
+        const dragAndDrop = (() => {
 
             let gameboardStatus = gameboard.getStatus();
 
-            grids.forEach(grid => {
-
-                grid.addEventListener('mouseover', () => {
-                    if (!gameboardStatus) {
-                        grid.classList.add('grid_hover');
-                        if (isMousedown) {
+            const invoke = () => {
+                const grids = document.querySelectorAll('.grid');
+                const axes = document.querySelectorAll('.axis');
+                let isMousedown = false;
+    
+                grids.forEach(grid => {
+    
+                    grid.addEventListener('mouseover', () => {
+                        if (!gameboardStatus) {
+                            grid.classList.add('grid_hover');
+                            if (isMousedown) {
+                                grid.classList.add('grid_click');
+                                shipProcessor.pushIn(grid.getAttribute('data-coordinates')); 
+                            }
+                        }
+                    });
+    
+                    grid.addEventListener('mouseout', () => {
+                        if (!gameboardStatus) {
+                            grid.classList.remove('grid_hover');
+                        }
+                    });
+    
+                    grid.addEventListener('mousedown', (e) => {
+                        if (!gameboardStatus) {
+                            pauseEvent(e); // other texts won't get selected during the drag and drop
+                            isMousedown = true;
                             grid.classList.add('grid_click');
                             shipProcessor.pushIn(grid.getAttribute('data-coordinates')); 
                         }
-                    }
-                });
-
-                grid.addEventListener('mouseout', () => {
-                    if (!gameboardStatus) {
-                        grid.classList.remove('grid_hover');
-                    }
-                });
-
-                grid.addEventListener('mousedown', (e) => {
-                    if (!gameboardStatus) {
-                        pauseEvent(e); // other texts won't get selected during the drag and drop
-                        isMousedown = true;
-                        grid.classList.add('grid_click');
-                        shipProcessor.pushIn(grid.getAttribute('data-coordinates')); 
-                    }
-                });
-
-                grid.addEventListener('mouseup', () => {
-                    if (!gameboardStatus) {
-                        isMousedown = false;
-                        let currentShipCoordinates = shipProcessor.getCurrentShipCoordinates();
-                        let isValid = shipProcessor.checkValidity(currentShipCoordinates); // invoke once only
-                        // put in the array of the current ship as input to check for validity                
-
-                        if (shipHarbour.isParkFull()) { // first check whether the park is already full
-                            
-                            showErrorMessage('unsuccessfulParking', 'Park is full!'); // TODO
-                            gameboard.clearInvalidShip(currentShipCoordinates);
-
-                        } else { // park is not yet full
-
-                            if (!isValid.validity) { // invalid ship
-
-                                let invalidMessage = isValid.invalidTests;
-                                showErrorMessage('invalidShip', invalidMessage); // TODO. Implement the different kind of errors here
+                    });
+    
+                    grid.addEventListener('mouseup', () => {
+                        if (!gameboardStatus) {
+    
+                            isMousedown = false;
+                            let currentShipCoordinates = shipProcessor.getCurrentShipCoordinates();
+                            let isValid = shipProcessor.checkValidity(currentShipCoordinates); // invoke once only
+                            // put in the array of the current ship as input to check for validity                
+    
+                            if (shipHarbour.isParkFull()) { // first check whether the park is already full
+                                
+                                showErrorMessage('unsuccessfulParking', 'Park is full!'); // TODO
                                 gameboard.clearInvalidShip(currentShipCoordinates);
-
-                            } else { // valid ship. proceed to parking attempt
-
-                                const parkAttempt = shipHarbour.parkShip(currentShipCoordinates); // invoke once only
-
-                                if (parkAttempt.parkStatus) { // parking successful
-
-                                    currentShipCoordinates.forEach(coordinate => {
-                                        const grid = document.querySelector('[data-coordinates=' + "'" + coordinate + "']");
-                                        grid.classList.add('validShip');
-                                    });
-
-                                    if (shipHarbour.isParkFull()) {
-                                        document.getElementById('confirmButton').disabled = false; // activates confirmButton only when the Ship Park is full
-                                        // deactivate further gameboard editing
-                                        gameboard.setStatusToComplete();
-                                        gameboardStatus = gameboard.getStatus();
-                                    }
-
-                                } else { // parking unsuccessful
-
-                                    showErrorMessage('unsuccessfulParking', parkAttempt.message);
+    
+                            } else { // park is not yet full
+    
+                                if (!isValid.validity) { // invalid ship
+    
+                                    let invalidMessage = isValid.invalidTests;
+                                    showErrorMessage('invalidShip', invalidMessage); // TODO. Implement the different kind of errors here
                                     gameboard.clearInvalidShip(currentShipCoordinates);
-
+    
+                                } else { // valid ship. proceed to parking attempt
+    
+                                    const parkAttempt = shipHarbour.parkShip(currentShipCoordinates); // invoke once only
+    
+                                    if (parkAttempt.parkStatus) { // parking successful
+    
+                                        currentShipCoordinates.forEach(coordinate => {
+                                            const grid = document.querySelector('[data-coordinates=' + "'" + coordinate + "']");
+                                            grid.classList.add('validShip');
+                                        });
+    
+                                        if (shipHarbour.isParkFull()) {
+                                            document.getElementById('confirmButton').disabled = false; // activates confirmButton only when the Ship Park is full
+                                            // deactivate further gameboard editing
+                                            gameboard.setStatusToComplete();
+                                            gameboardStatus = gameboard.getStatus();
+                                        }
+    
+                                    } else { // parking unsuccessful
+    
+                                        showErrorMessage('unsuccessfulParking', parkAttempt.message);
+                                        gameboard.clearInvalidShip(currentShipCoordinates);
+    
+                                    }
+                                    shipPlacementPanel.refresh(); // refresh counter at DOM
+    
                                 }
-                                shipPlacementPanel.refresh(); // refresh counter at DOM
-
+    
                             }
-
+    
+                            shipProcessor.resetCurrentShipCoordinates(); // wipe out the array at the end of each check
                         }
-
-                        shipProcessor.resetCurrentShipCoordinates(); // wipe out the array at the end of each check
+                    });
+                });  
+    
+                function showErrorMessage(type, messages) {
+                    const msg = document.querySelector('.msg');
+                    if (type === 'unsuccessfulParking') {
+                        msg.textContent = messages;
+                    } else if (type === 'invalidShip') {
+                        msg.textContent = `${messages} test(s) not passed`;
                     }
-                });
-            });  
-
-            function showErrorMessage(type, messages) {
-                const msg = document.querySelector('.msg');
-                if (type === 'unsuccessfulParking') {
-                    msg.textContent = messages;
-                } else if (type === 'invalidShip') {
-                    msg.textContent = `${messages} test(s) not passed`;
+                    msg.classList.add('error');
+                    msg.classList.add('show');
+    
+                    document.querySelector('.show').addEventListener('transitionend', () => {
+                        msg.classList.remove('show');
+                        msg.classList.remove('error');
+                        msg.textContent = '';
+                    });
                 }
-                msg.classList.add('error');
-                msg.classList.add('show');
+    
+                function pauseEvent(e){
+                    if (e.stopPropagation) e.stopPropagation(); // stop propagating the events in capturing and bubbling phases
+                    if (e.preventDefault) e.preventDefault();
+                }
+    
+            };
 
-                document.querySelector('.show').addEventListener('transitionend', () => {
-                    msg.classList.remove('show');
-                    msg.classList.remove('error');
-                    msg.textContent = '';
-                });
-            }
 
-            function pauseEvent(e){
-                if (e.stopPropagation) e.stopPropagation(); // stop propagating the events in capturing and bubbling phases
-                if (e.preventDefault) e.preventDefault();
-            }
+            const reset = () => {
+                gameboardStatus = gameboard.getStatus();
+            };
 
-        };
+
+            return { invoke, reset };
+
+        })();
     
 
         // helper for the ship placement panel
@@ -1042,7 +1094,8 @@ const DOMInterface = (() => {
 
 
         return {
-            gameboard
+            gameboard,
+            shipHarbour
         };
 
     })();
@@ -1054,8 +1107,6 @@ const DOMInterface = (() => {
     };
 
 })();
-
-
 
 
 export {
