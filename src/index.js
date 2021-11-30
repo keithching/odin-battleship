@@ -6,6 +6,7 @@ const shipFactory = (length) => {
     // name the positions as 'compartments'. As an array of length of the ship
     // default the get hit as false
     const compartmentGetHit = [];
+
     for (let i = 0; i < length; i++) {
         compartmentGetHit[i] = false;
     }
@@ -27,12 +28,18 @@ const shipFactory = (length) => {
         }
     };
 
+    const reset = () => {
+        for (let i = 0; i < compartmentGetHit.length; i++) {
+            compartmentGetHit[i] = false;
+        }       
+    };
 
     return {
         length,
         compartmentGetHit,
         hit,
-        isSunk
+        isSunk,
+        reset
     };
 };
 
@@ -70,7 +77,7 @@ const gameboardFactory = () => {
             if (lastCharacter.some(coordinate => coordinate !== lastCharacter[0])) {
                 throw new Error('diagonal placement of ship is not allowed');
             }
-        } else { // 2-character coordinates
+        } else if (coordinates.every(coordinate => coordinate.length === 2)) { // 2-character coordinates
             const firstCharacter = coordinates.map(coordinate => coordinate.slice(0, 1));
             const lastCharacter = coordinates.map(coordinate => coordinate.slice(1, 2));
             if (firstCharacter.some(coordinate => coordinate !== firstCharacter[0]) && lastCharacter.some(coordinate => coordinate !== lastCharacter[0])) {
@@ -100,6 +107,14 @@ const gameboardFactory = () => {
 
     const resetAttackLog = () => attackLog = [];
 
+    const resetShipHitStatus = () => {
+
+        for (let i = 0; i < shipsOnBoard.length; i++) {
+            shipsOnBoard[i].reset();
+        }
+
+    };
+
     const receiveAttack = (coordinate) => {
         if (grids[`grid-${coordinate}`].containShip) {
             grids[`grid-${coordinate}`].ship.hit(grids[`grid-${coordinate}`].shipCompartment);
@@ -126,6 +141,7 @@ const gameboardFactory = () => {
         getAttackLog,
         resetAttackLog,
         resetShipsOnBoard,
+        resetShipHitStatus
     };
 
 };
@@ -141,7 +157,7 @@ const player = (() => {
     const player2 = {
         name: 'computer',
         gameboard: gameboardFactory(),
-        attack: () => player1.gameboard.receiveAttack(getRandomCoordinate())
+        attack: () => player1.gameboard.receiveAttack(computerAttack.getCoordinate())
     };
 
     const setName = (name) => {
@@ -176,18 +192,149 @@ const player = (() => {
         }    
     };
 
+    const computerAttack = (() => {
 
-    const getRandomCoordinate = () => {
+        let priorityLane = []; // compute the adjacent coordinates, and save them into the priority lane
 
-        // Returns a random integer from 0 to 99
-        let randomNumber = Math.floor(Math.random() * poolOfAttack.grids.length);
-        let randomCoordinate = poolOfAttack.grids[randomNumber];
+        const resetPriorityLane = () => priorityLane = [];
 
-        // each time it attacks, the grids array length reduces by 1
-        poolOfAttack.grids.splice(poolOfAttack.grids.indexOf(poolOfAttack.grids[randomNumber]), 1);
+        const getPriorityLane = () => priorityLane;
 
-        return randomCoordinate;
-    };
+        const getCoordinate = () => {
+
+            const playerAttackLog = player.players.player1.gameboard.getAttackLog();
+            const coordinate = playerAttackLog[playerAttackLog.length - 1];
+            const grid = document.querySelector(".player1 .grid[data-coordinates=" + "'" + coordinate + "']");
+
+            if (playerAttackLog == '') { // first time attacking
+                
+                return getRandomCoordinate();
+
+            } else { // not first time attacking
+
+                if (grid.getAttribute('data-containShip') == 'true') { // last attack contains a ship
+                    
+                    let coordinates = generateAdjacentCoordinates(coordinate); // generate the adjacent coordinates that potentially contain a ship as well
+
+                    for (let i = 0; i < coordinates.length; i++) {
+                        if (!player.players.player1.gameboard.getAttackLog().find(coordinate => coordinate == coordinates[i])) { // add to priority lane only if the potential coordinates have not been attacked
+                            priorityLane.splice(0, 0, coordinates[i]); // push into the priority lane (push into the front)
+                        }
+                    } 
+
+                    if (priorityLane.length == 0) { // attacks randomly if priority lane is empty
+
+                        return getRandomCoordinate();
+                    }
+
+                    let firstPriority = priorityLane[0];
+
+                    priorityLane.splice(0, 1); // pop the first element
+
+                    poolOfAttack.grids.splice(poolOfAttack.grids.indexOf(firstPriority), 1); // each time it attacks, the grids array length reduces by 1
+
+                    return firstPriority;
+
+                } else { // last attack does not contain a ship
+
+                    if (priorityLane.length == 0) { // attacks randomly if priority lane is empty
+
+                        return getRandomCoordinate();
+
+                    } else { // prioritize attacks in the priority lane
+
+                        let firstPriority = priorityLane[0];
+                        priorityLane.splice(0, 1); // pop the first element
+
+                        if (!player.players.player1.gameboard.getAttackLog().find(coordinate => coordinate == firstPriority)) {
+
+                            poolOfAttack.grids.splice(poolOfAttack.grids.indexOf(firstPriority), 1); // each time it attacks, the grids array length reduces by 1
+
+                            return firstPriority;
+                        } else {
+
+                            return getRandomCoordinate();
+
+                        }
+                    }
+
+                }
+            } 
+
+            function generateAdjacentCoordinates (coordinate) {
+
+                let numberGrid;
+                let alphabetGrid;
+
+                if (coordinate.length == 3) {
+                    numberGrid = coordinate.slice(0, 2);
+                    alphabetGrid = coordinate.slice(2, 3);
+                } else {
+                    numberGrid = coordinate.slice(0, 1);
+                    alphabetGrid = coordinate.slice(1, 2);
+                }
+
+                let outputCoordinates = [];
+
+                let numberGridNew;
+                let alphabetGridNew;
+                let newCoordinate;
+
+                // south grid
+                numberGridNew = Number(numberGrid) + 1;
+                alphabetGridNew = alphabetGrid; 
+                newCoordinate = numberGridNew + alphabetGridNew;
+
+                if (numberGridNew > 0 && numberGridNew < 11) {
+                    outputCoordinates.push(newCoordinate);
+                }
+                
+                // east grid
+                numberGridNew = numberGrid;
+                alphabetGridNew = String.fromCharCode(alphabetGrid.charCodeAt(0) + 1); // convert to Unicode (ASCII), update Unicode value, convert to Character
+                newCoordinate = numberGridNew + alphabetGridNew;
+
+                if (alphabetGridNew.charCodeAt(0) >= 65 && alphabetGridNew.charCodeAt(0) <= 74) {
+                    outputCoordinates.push(newCoordinate);
+                }
+                
+                // north grid
+                numberGridNew = Number(numberGrid) - 1;
+                alphabetGridNew = alphabetGrid; 
+                newCoordinate = numberGridNew + alphabetGridNew;
+
+                if (numberGridNew > 0 && numberGridNew < 11) {
+                    outputCoordinates.push(newCoordinate);
+                }
+
+                // west grid
+                numberGridNew = Number(numberGrid);
+                alphabetGridNew = String.fromCharCode(alphabetGrid.charCodeAt(0) - 1); // convert to Unicode (ASCII), update Unicode value, convert to Character
+                newCoordinate = numberGridNew + alphabetGridNew;
+
+                if (alphabetGridNew.charCodeAt(0) >= 65 && alphabetGridNew.charCodeAt(0) <= 74) {
+                    outputCoordinates.push(newCoordinate);
+                }
+
+                return outputCoordinates; // array
+            }
+
+            function getRandomCoordinate () {
+
+                // Returns a random integer from 0 to 99
+                let randomNumber = Math.floor(Math.random() * poolOfAttack.grids.length);
+                let randomCoordinate = poolOfAttack.grids[randomNumber];
+        
+                // each time it attacks, the grids array length reduces by 1
+                poolOfAttack.grids.splice(poolOfAttack.grids.indexOf(poolOfAttack.grids[randomNumber]), 1);
+        
+                return randomCoordinate;
+            }
+
+        };
+
+        return { priorityLane, getCoordinate, resetPriorityLane };
+    })();
 
 
     const players = { player1, player2 };
@@ -214,7 +361,8 @@ const player = (() => {
         setTurn,
         getTurn,
         switchTurn,
-        resetPool
+        resetPool,
+        computerAttack
     };
 })();
 
@@ -230,6 +378,8 @@ const gameInterface = (() => {
 
         if (mode == 'random') {
             
+            DOMInterface.shipRandomizer();
+
             prepareForGame(); // directly go to game prep
 
         } else if (mode == 'customize') {
@@ -258,6 +408,12 @@ const gameInterface = (() => {
             player.players.player2.gameboard.placeShip(['3A', '3B', '3C']);
             player.players.player2.gameboard.placeShip(['4A', '4B', '4C']);
             player.players.player2.gameboard.placeShip(['5A', '5B']);
+
+
+            // reset game button
+            const newGameButton = document.getElementById('newgame');
+            newGameButton.textContent = 'Reset Game'; // change new game button to reset game
+            newGameButton.addEventListener('click', () => gameInterface.resetGame());
 
         } else if (mode == 'customize') {
             let garage = DOMInterface.customizationMode.shipHarbour.getGarage();
@@ -318,15 +474,27 @@ const gameInterface = (() => {
         return false;
     };
 
-    const resetGame = () => {
+    const resetGame = () => { // the extent of reseting a game
     
-        // clear ships on the board
-        player.players.player1.gameboard.resetShipsOnBoard();
         // reset attack log
         player.players.player1.gameboard.resetAttackLog();
+        player.players.player2.gameboard.resetAttackLog();
 
+        player.players.player1.gameboard.resetShipHitStatus();
+        player.players.player2.gameboard.resetShipHitStatus();
+
+        DOMInterface.gameMode.gameboard.clearAttackMoves(); // clear the attack moves on DOM
+
+        // reset the priority lane in computer attacks
+        player.computerAttack.resetPriorityLane();
+
+        // set turn to player
+        player.setTurn(player.getName(player.players.player1));
+        DOMInterface.gameMode.gameboard.displayCurrentTurn();
 
     };
+
+
 
 
     return {
@@ -343,8 +511,56 @@ const gameInterface = (() => {
 
 const DOMInterface = (() => {
 
-    const newGameButton = document.getElementById('newgame');
-    newGameButton.addEventListener('click', () => userForm.show(), { once: true });
+    const landingPage = (() => {
+        // simple effects for the welcome text
+        const welcomeText = document.querySelector('.welcomeText');
+
+        const welcomeText_battle = document.querySelector('.welcomeText .battle');
+        const welcomeText_ship = document.querySelector('.welcomeText .ship');
+
+        let currentPattern = 1;
+
+        let alternatingPatterns = setInterval(() => {
+
+            if (currentPattern == 1) {
+                showPattern1();
+                currentPattern = 2;
+            } else if (currentPattern == 2) {
+                showPattern2();
+                currentPattern = 1;
+            }
+
+        }, 1000);
+
+
+        function showPattern1 () {
+                welcomeText_battle.classList.add('ship');
+                welcomeText_battle.classList.remove('battle');
+                welcomeText_ship.classList.add('battle');
+                welcomeText_ship.classList.remove('ship');
+        }
+
+        function showPattern2 () {
+                welcomeText_battle.classList.remove('ship');
+                welcomeText_battle.classList.add('battle');
+                welcomeText_ship.classList.remove('battle');
+                welcomeText_ship.classList.add('ship');
+        }
+
+
+        const newGameButton = document.getElementById('newgame');
+        newGameButton.addEventListener('click', () => {
+        
+            clearInterval(alternatingPatterns);
+
+            welcomeText.remove();
+            
+            userForm.show();
+
+        }, { once: true });
+        
+    })();
+
 
     const userForm = (() => {
 
@@ -424,16 +640,14 @@ const DOMInterface = (() => {
     
                 // enter into the selected ship mode
                 // go into a transition page where the user either see a randomized ship board or a board allowing for drag and drop ships
-                // TODO
                 const mode = modeSelect.value;
 
                 gameInterface.setMode(mode); // set the gameMode
     
-                // proceed to game details
-                gameInterface.confirmShipLayout();    
-    
-                // remove the form from the DOM
-                form.remove();
+                gameInterface.confirmShipLayout(); // proceed to game details
+                
+                form.remove(); // remove the form from the DOM
+
             }); 
         };
 
@@ -561,11 +775,30 @@ const DOMInterface = (() => {
                 msg.textContent = `current turn: ${player.getTurn()}`;
             };
     
-    
+            
+            const clearAttackMoves = () => {
+
+                const grids1 = document.querySelectorAll('.player1 .grid');
+                grids1.forEach(grid => {
+                    grid.classList.remove('receivedAttack');
+                    grid.classList.remove('missedAttack');
+                });
+
+                const grids2 = document.querySelectorAll('.player2 .grid');
+                grids2.forEach(grid => {
+                    grid.classList.remove('receivedAttack');
+                    grid.classList.remove('missedAttack');
+                });
+
+
+            };
+
+
             return {
                 create,
                 render,
-                displayCurrentTurn
+                displayCurrentTurn,
+                clearAttackMoves
             }
     
         })();
@@ -636,6 +869,9 @@ const DOMInterface = (() => {
                     // place ships to gameboard object with the garage ships
                     gameInterface.prepareForGame();
 
+                    const newGameButton = document.getElementById('newgame');
+                    newGameButton.textContent = 'Reset Game'; // change new game button to reset game
+                    newGameButton.addEventListener('click', () => gameInterface.resetGame());
                 });
 
                 functionButtons.appendChild(confirmButton);
@@ -1100,10 +1336,27 @@ const DOMInterface = (() => {
 
     })();
 
+    // TODO
+    const shipRandomizer = () => {
+
+        // get the available ship sizes from the ship harbour parking space
+        let parkingSpace = customizationMode.shipHarbour.parkingSpace;
+
+        // console.log(Object.keys(parkingSpace));
+
+
+
+
+
+
+
+    };
+
 
     return {
         gameMode,
-        customizationMode
+        customizationMode,
+        shipRandomizer
     };
 
 })();
